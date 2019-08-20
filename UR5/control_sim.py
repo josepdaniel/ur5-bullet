@@ -1,13 +1,14 @@
-from simulation import Simulation
+from Simulation import Simulation
 from UR5 import UR5RobotServer
 import math
 import pybullet
 import time
 
-sim = Simulation()
+sim = Simulation(camera_attached=True)
     
 sim.step_joints([0, -math.pi/2, -math.pi/2, -math.pi/2, -math.pi/2, 0])
 sim.add_gui_sliders()
+sim.begin_collision_checking()
 time.sleep(1)
     
 while True:

@@ -5,16 +5,19 @@ import numpy as np
 import time
 import pybullet 
 import random
+import threading
+from datetime import datetime
 import pybullet_data
 from collections import namedtuple
 from attrdict import AttrDict
 
 mesh_path = "../Models/meshes/objects/"
 robot_urdf_path = "../ur_e_description/urdf/ur5e.urdf"
+robot_with_camera_urdf_path = "../ur_e_description/urdf/ur5e_with_camera.urdf"
 
 class Simulation(gym.Env):
   
-    def __init__(self):
+    def __init__(self, camera_attached=False):
     
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
         if(cid<0):
@@ -26,7 +29,7 @@ class Simulation(gym.Env):
         self.start_orientation = [0,0,0]
         self.start_quaternion = pybullet.getQuaternionFromEuler(self.start_orientation)
         self.table = self.load_scene()
-        self.ur5 = self.load_robot()
+        self.ur5 = self.load_robot(camera_attached=camera_attached)
         
         base_quat = pybullet.getQuaternionFromEuler([0, 0, -math.pi])
         pybullet.resetBasePositionAndOrientation(self.ur5, [0.0, 0.0, 0.0], base_quat)
@@ -38,6 +41,9 @@ class Simulation(gym.Env):
         self.num_joints = pybullet.getNumJoints(self.ur5)
         self.joint_info = namedtuple("jointInfo", ["id", "name", "type", "lowerLimit", "upperLimit", "maxForce", "maxVelocity", "controllable"])
         
+        self.collision_checking_thread = threading.Thread(target=self.check_collisions)
+        self.do_collision_checking = False
+
         self.joints = AttrDict()
         for i in range(self.num_joints):
             info = pybullet.getJointInfo(self.ur5, i)
@@ -58,7 +64,24 @@ class Simulation(gym.Env):
         
     def __del__(self):
         pybullet.disconnect()
-        
+        if self.collision_checking_thread.is_alive():
+            self.end_collision_checking()
+    
+    def begin_collision_checking(self):
+        self.do_collision_checking = True
+        self.collision_checking_thread.start()
+
+    def end_collision_checking(self):
+        self.do_collision_checking = False
+        self.collision_checking_thread.join()
+    
+    def check_collisions(self):
+        while(self.do_collision_checking):
+            collisions = pybullet.getContactPoints()
+            if len(collisions) > 0:
+                print("[Collision detected!] {}".format(datetime.now()))
+
+    
     def add_gui_sliders(self):
         self.sliders = []
         self.sliders.append(pybullet.addUserDebugParameter("X", 0, 1, 0.4))
@@ -73,8 +96,13 @@ class Simulation(gym.Env):
         table = [pybullet.loadURDF((os.path.join(pybullet_data.getDataPath(), "table/table.urdf")), 0.5, 0.0, -0.6300, 0.000000, 0.000000, 0.0, 1.0)]
         return [table]
         
-    def load_robot(self):
-        return pybullet.loadURDF(robot_urdf_path, self.start_position, self.start_quaternion, flags=pybullet.URDF_USE_SELF_COLLISION)
+    def load_robot(self, camera_attached):
+        if camera_attached:
+            return pybullet.loadURDF(robot_with_camera_urdf_path, self.start_position, self.start_quaternion, 
+                                     flags=pybullet.URDF_USE_INERTIA_FROM_FILE|pybullet.URDF_USE_SELF_COLLISION)
+        else:
+            return pybullet.loadURDF(robot_urdf_path, self.start_position, self.start_quaternion, 
+                                     flags=pybullet.URDF_USE_INERTIA_FROM_FILE|pybullet.URDF_USE_SELF_COLLISION)
 
     def calculate_ik(self, position, orientation):
         quaternion = pybullet.getQuaternionFromEuler(orientation)
@@ -126,7 +154,7 @@ class Simulation(gym.Env):
         pass
         
 def do_waypoints(waypoints):
-    sim = Simulation()
+    sim = Simulation(camera_attached=True)
     i = 0
     while True:
         while i<len(waypoints):
@@ -143,7 +171,7 @@ def do_waypoints(waypoints):
             contact_points = pybullet.getContactPoints()
 
             if len(contact_points) > 0:
-                print("Collision detected!")
+               print("Collision detected!")
 
         op = input("Hit return to repeat sim, q to quit.")
         if op == 'q':

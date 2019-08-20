@@ -1,7 +1,7 @@
 import os, inspect
 from UR5 import UR5RobotServer
 from pynput.keyboard import Key, Listener, KeyCode
-import simulation
+import Simulation
 
 
 finished=False
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     do_sim = input("Do simulation? [y/n]: ")
     
     if do_sim == 'y':
-        result = simulation.do_waypoints(waypoints)
+        result = Simulation.do_waypoints(waypoints)
 
     input("Hit return to begin the program... ")
     server.connect_to_client()
