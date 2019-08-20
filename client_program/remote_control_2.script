@@ -1,0 +1,84 @@
+def remote_control_2():
+  set_standard_analog_input_domain(0, 1)
+  set_standard_analog_input_domain(1, 1)
+  set_tool_analog_input_domain(0, 1)
+  set_tool_analog_input_domain(1, 1)
+  set_analog_outputdomain(0, 0)
+  set_analog_outputdomain(1, 0)
+  set_tool_voltage(0)
+  set_input_actions_to_default()
+  set_tcp(p[0.0,0.0,0.0,0.0,0.0,0.0])
+  set_payload(0.0, [0.0, 0.0, 0.0])
+  set_gravity([0.0, 0.0, 9.82])
+  global Line_1=p[0.0,0.0,0.0,0.0,0.0,0.0]
+  global Plane_1=p[-0.5751209045643729,-0.004872043931679536,0.060200093006606656,2.353694769922261,-2.078248636088148,0.0023708049128136088]
+  global back_wall=p[-0.41932665226408045,-0.12195300953952146,0.2269080758480388,1.3362183604261324,-1.16972099211562,-0.9714578046954438]
+  global right_door_vert=p[-0.16858229601310534,0.41331324293586696,0.6801509213074193,-1.5828734573460066,0.016333702659465942,0.03468155197511527]
+  global wall2=p[-0.491753143917329,-0.11882401102906372,0.691820635629135,1.4458059018985205,-1.269931211152077,-1.5378541749616708]
+  $ 1 "BeforeStart"
+  $ 2 "host≔socket_open('129.78.210.145', 30000)"
+  global host=socket_open("129.78.210.145", 30000)
+  $ 3 "initialising≔1"
+  global initialising=1
+  $ 13 "Thread_1"
+  thread Thread_1():
+    while (True):
+      while (initialising == 1):
+        sleep(0.01)
+      end
+      while (True):
+        global new_waypts_flag=0
+        global new_waypts=socket_read_ascii_float(30)
+        if (new_waypts[0] != 0):
+          global new_waypts_flag=1
+          while (not(new_waypts_flag == 0)):
+            sync()
+          end
+          global success=socket_send_string("ready")
+        end
+        sleep(0.01)
+      end
+    end
+  end
+  threadId_Thread_1 = run Thread_1()
+  $ 4 "Robot Program"
+  $ 5 "Loop host≟False"
+  while (host == False):
+    $ 6 "host≔socket_open('129.78.210.145', 30000)"
+    global host=socket_open("129.78.210.145", 30000)
+    $ 7 "Wait: 0.1"
+    sleep(0.1)
+  end
+  $ 8 "success≔socket_send_string('Shaking hands')"
+  global success=socket_send_string("Shaking hands")
+  $ 9 "Wait: 0.05"
+  sleep(0.05)
+  $ 10 "new_waypts_flag≔0"
+  global new_waypts_flag=0
+  $ 11 "initialising≔0"
+  global initialising=0
+  $ 12 "Script: client_move.script"
+  waypoints=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  num_waypoints=0
+  
+  while 1:
+  
+  if new_waypts_flag==1:
+   waypoints=new_waypts
+   num_waypoints=waypoints[0]
+   new_waypts_flag=0
+  end
+  
+  i=1
+  while i<= num_waypoints:
+    joints = [waypoints[i], waypoints[i+1], waypoints[i+2], waypoints[i+3], waypoints[i+4], waypoints[i+5]]
+    movep(joints, v=0.05, r=0.1)
+    i=i+6
+  end
+  
+  if num_waypoints==0:
+   sleep(0.01)
+  end
+  
+  end
+end
