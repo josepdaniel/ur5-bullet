@@ -24,13 +24,13 @@ class Simulation(gym.Env):
             cid = pybullet.connect(pybullet.GUI)
     
         self.objects = self.load_scene()
-        self.end_effector_index = 8
+        self.end_effector_index = 7
         self.start_position = [0,0,0]
         self.start_orientation = [0,0,0]
         self.start_quaternion = pybullet.getQuaternionFromEuler(self.start_orientation)
         self.table = self.load_scene()
         self.ur5 = self.load_robot(camera_attached=camera_attached)
-        self.start_joint_angles = [0, -math.pi/2, -math.pi/2, -math.pi/2, -math.pi/2, 0]
+        self.start_joint_angles = [0, -math.pi/2, -math.pi/2, 0, math.pi/2, 0]
         
         base_quat = pybullet.getQuaternionFromEuler([0, 0, -math.pi])
         pybullet.resetBasePositionAndOrientation(self.ur5, [0.0, 0.0, 0.0], base_quat)
@@ -77,7 +77,6 @@ class Simulation(gym.Env):
             return True
         return False
        
-    
     def add_gui_sliders(self):
         self.sliders = []
         self.sliders.append(pybullet.addUserDebugParameter("X", 0, 1, 0.4))
@@ -94,10 +93,10 @@ class Simulation(gym.Env):
     def load_robot(self, camera_attached):
         if camera_attached:
             return pybullet.loadURDF(robot_with_camera_urdf_path, self.start_position, self.start_quaternion, 
-                                     flags=pybullet.URDF_USE_INERTIA_FROM_FILE|pybullet.URDF_USE_SELF_COLLISION)
+                                     flags=pybullet.URDF_USE_SELF_COLLISION)
         else:
             return pybullet.loadURDF(robot_urdf_path, self.start_position, self.start_quaternion, 
-                                     flags=pybullet.URDF_USE_INERTIA_FROM_FILE|pybullet.URDF_USE_SELF_COLLISION)
+                                     flags=pybullet.URDF_USE_SELF_COLLISION)
 
     def calculate_ik(self, position, orientation):
         quaternion = pybullet.getQuaternionFromEuler(orientation)
@@ -132,7 +131,7 @@ class Simulation(gym.Env):
                                            pybullet.POSITION_CONTROL,
                                            targetPositions=joint_angles,
                                            targetVelocities = [0]*len(poses),
-                                           positionGains = [0.005]*len(poses), forces = forces)
+                                           positionGains = [0.04]*len(poses), forces = forces)
     
     def run(self):
         self.go_to_start_pose()
@@ -205,7 +204,6 @@ class Simulation(gym.Env):
                 joints = waypoints[i:i+6]
                 if not use_joint_angles: 
                     joints = self.calculate_ik(joints[0:3], joints[-3:])
-                    print("{}, {}".format(joints[0:3], joints[-3:]))
                 print("Waypoint {}: {}".format(i/6, joints))
                 joints_list.extend(joints)
                 self.step_joints(joints)
