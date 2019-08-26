@@ -1,4 +1,6 @@
 .idea/
-.DS_Store/
+.DS_Store
 test/
 src/__pycache__
+__pycache__
+*.pyc

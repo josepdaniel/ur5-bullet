@@ -5,7 +5,6 @@ import numpy as np
 import time
 import pybullet 
 import random
-import threading
 from datetime import datetime
 import pybullet_data
 from collections import namedtuple
@@ -18,9 +17,10 @@ robot_with_camera_urdf_path = "../ur_e_description/urdf/ur5e_with_camera.urdf"
 class Simulation(gym.Env):
   
     def __init__(self, camera_attached=False):
-    
+      
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
         if(cid<0):
+            print("Couldn't connect to shared memory server, using GUI")
             cid = pybullet.connect(pybullet.GUI)
     
         self.objects = self.load_scene()
@@ -30,6 +30,7 @@ class Simulation(gym.Env):
         self.start_quaternion = pybullet.getQuaternionFromEuler(self.start_orientation)
         self.table = self.load_scene()
         self.ur5 = self.load_robot(camera_attached=camera_attached)
+        self.start_joint_angles = [0, -math.pi/2, -math.pi/2, -math.pi/2, -math.pi/2, 0]
         
         base_quat = pybullet.getQuaternionFromEuler([0, 0, -math.pi])
         pybullet.resetBasePositionAndOrientation(self.ur5, [0.0, 0.0, 0.0], base_quat)
@@ -40,9 +41,7 @@ class Simulation(gym.Env):
         self.joint_type_list = ["REVOLUTE", "PRISMATIC", "SPHERICAL", "PLANAR", "FIXED"]
         self.num_joints = pybullet.getNumJoints(self.ur5)
         self.joint_info = namedtuple("jointInfo", ["id", "name", "type", "lowerLimit", "upperLimit", "maxForce", "maxVelocity", "controllable"])
-        
-        self.collision_checking_thread = threading.Thread(target=self.check_collisions)
-        self.do_collision_checking = False
+
 
         self.joints = AttrDict()
         for i in range(self.num_joints):
@@ -64,23 +63,20 @@ class Simulation(gym.Env):
         
     def __del__(self):
         pybullet.disconnect()
-        if self.collision_checking_thread.is_alive():
-            self.end_collision_checking()
     
-    def begin_collision_checking(self):
-        self.do_collision_checking = True
-        self.collision_checking_thread.start()
-
-    def end_collision_checking(self):
-        self.do_collision_checking = False
-        self.collision_checking_thread.join()
+    def save_current_state(self):
+        self.save_id = pybullet.saveState()
+    
+    def load_last_saved_state(self):
+        pybullet.restoreState(self.save_id)
     
     def check_collisions(self):
-        while(self.do_collision_checking):
-            collisions = pybullet.getContactPoints()
-            if len(collisions) > 0:
-                print("[Collision detected!] {}".format(datetime.now()))
-
+        collisions = pybullet.getContactPoints()
+        if len(collisions) > 0:
+            print("[Collision detected!] {}".format(datetime.now()))
+            return True
+        return False
+       
     
     def add_gui_sliders(self):
         self.sliders = []
@@ -91,7 +87,6 @@ class Simulation(gym.Env):
         self.sliders.append(pybullet.addUserDebugParameter("Ry", -math.pi/2, math.pi/2, 0))
         self.sliders.append(pybullet.addUserDebugParameter("Rz", -math.pi/2, math.pi/2, 0))
         
-
     def load_scene(self):
         table = [pybullet.loadURDF((os.path.join(pybullet_data.getDataPath(), "table/table.urdf")), 0.5, 0.0, -0.6300, 0.000000, 0.000000, 0.0, 1.0)]
         return [table]
@@ -111,13 +106,17 @@ class Simulation(gym.Env):
         upper_limits = [math.pi]*6
         joint_ranges = [2*math.pi]*6
         rest_poses = [0, -math.pi/2, -math.pi/2, -math.pi/2, -math.pi/2, 0]
-        
         joint_angles = pybullet.calculateInverseKinematics(self.ur5, self.end_effector_index, position, quaternion, 
-                                                           jointDamping=[0.001]*6, upperLimits=upper_limits, 
+                                                           jointDamping=[0.01]*6, upperLimits=upper_limits, 
                                                            lowerLimits=lower_limits, jointRanges=joint_ranges, 
                                                            restPoses=rest_poses)
         return joint_angles
         
+    def get_current_joint_angles(self):
+        j = pybullet.getJointStates(self.ur5, [1,2,3,4,5,6])
+        joints = [i[0] for i in j]
+        return joints
+    
     def step_joints(self, joint_angles):
         poses = []
         indexes = []
@@ -136,6 +135,8 @@ class Simulation(gym.Env):
                                            positionGains = [0.005]*len(poses), forces = forces)
     
     def run(self):
+        self.go_to_start_pose()
+        self.add_gui_sliders()
         while True:
             x = pybullet.readUserDebugParameter(self.sliders[0])
             y = pybullet.readUserDebugParameter(self.sliders[1])
@@ -147,36 +148,68 @@ class Simulation(gym.Env):
             orientation = [Rx, Ry, Rz]
             joint_angles = self.calculate_ik(position, orientation)
             self.step_joints(joint_angles)
-            
-            
-            
-    def calculate_trajectory(self):
-        pass
+            self.check_collisions()
+
+    def go_to_start_pose(self):
+        self.step_joints(self.start_joint_angles)
+        error = self.calculate_error(self.start_joint_angles)
+        while(error>0.04):
+            error = self.calculate_error(self.start_joint_angles)
+    
+    def calculate_error(self, goal):
+        current = self.get_current_joint_angles()
+        error = sum([abs(i[0]-i[1]) for i in zip(goal, current)])
+        return error
+    
+    def run_waypoints(self, waypoints):
+        """ Loop through waypoints infinitely """
+        i=0
+        joints = waypoints[0:6]
+        self.step_joints(joints)
+        while True:
+            self.check_collisions()
+            error = self.calculate_error(joints)
+            if error <= 0.04:
+                i = i+6 if i<len(waypoints)-6 else 0
+                print("Waypoint {}".format(i/6))
+                joints = waypoints[i:i+6]
+                self.step_joints(joints)
+
+    def verify_waypoints(self, waypoints, use_joint_angles=True):
+        """ 
+        Returns completed joint angles if waypoints are good, -1 if waypoints cause collision.
+        Specify use_joint_angles=False if passing in position/rotation vectors, leave as True
+        if passing in joint angles. 
+        """
         
-def do_waypoints(waypoints):
-    sim = Simulation(camera_attached=True)
-    i = 0
-    while True:
-        while i<len(waypoints):
-            contact_points = pybullet.getContactPoints()
-            
-            if len(contact_points) > 0:
-                print("Collision detected!")
+        i=0
+        joints_list = []
+        num_waypoints = len(waypoints)
+        waypoints.extend(waypoints) # repeat trajectory twice
+        
+        joints = waypoints[0:6]
+        if not use_joint_angles: 
+            joints = self.calculate_ik(joints[0:3], joints[-3:])
+        
+        joints_list.extend(joints)
+        self.step_joints(joints)
+        print("Waypoint {}: {}".format(i/6, joints))
+        
+        while True:
+            collides = self.check_collisions()
+            if collides is True: return -1 
+            error = self.calculate_error(joints)
+            if error <= 0.04:
+                i = i+6    
+                if i > len(waypoints) - 6: return joints_list[0:num_waypoints]
+                joints = waypoints[i:i+6]
+                if not use_joint_angles: 
+                    joints = self.calculate_ik(joints[0:3], joints[-3:])
+                    print("{}, {}".format(joints[0:3], joints[-3:]))
+                print("Waypoint {}: {}".format(i/6, joints))
+                joints_list.extend(joints)
+                self.step_joints(joints)
 
-            print("doing waypoint {}".format(i/6))
-            joints = waypoints[i:i+6]
-            sim.step_joints(joints)
-            time.sleep(2.5)
-            i += 6
-            contact_points = pybullet.getContactPoints()
-
-            if len(contact_points) > 0:
-               print("Collision detected!")
-
-        op = input("Hit return to repeat sim, q to quit.")
-        if op == 'q':
-            break
-        i = 0
            
 if __name__ == "__main__":
     sim = Simulation()

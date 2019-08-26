@@ -41,7 +41,8 @@ if __name__ == "__main__":
     do_sim = input("Do simulation? [y/n]: ")
     
     if do_sim == 'y':
-        result = Simulation.do_waypoints(waypoints)
+        sim = Simulation.Simulation(camera_attached=True)
+        result = sim.verify_waypoints(waypoints)
 
     input("Hit return to begin the program... ")
     server.connect_to_client()
