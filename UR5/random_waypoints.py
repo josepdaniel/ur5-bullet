@@ -1,10 +1,11 @@
 from Simulation import Simulation
+from UR5 import UR5RobotServer
 import random
 import math
 import sys
 import itertools
 
-DO_ON_ROBOT=False
+DO_ON_ROBOT=True
 
 sim = Simulation(camera_attached=True)
 sim.go_to_start_pose()
@@ -32,10 +33,10 @@ def generate_random_waypoint():
     # Add boundaries
     if(x>0.8): x=0.8
     if(x<0.35): x =0.35
-    if(y>0.7): y=0.7
+    if(y>0.35): y=0.35
     if(y<-0.7): y=-0.7
-    if(z>0.7): z=0.7
-    if(z<0.3): z=0.3
+    if(z>0.8): z=0.8
+    if(z<0.4): z=0.4
     # Uniform RPY
     roll = 0
     pitch = 0
@@ -46,10 +47,10 @@ if len(sys.argv) > 1:
     outfile = open(sys.argv[1], 'w+')
 
 if DO_ON_ROBOT:
-    server=UR5RobotSever()
+    server=UR5RobotServer()
 
 number_of_trajectories_generated = 0
-while number_of_trajectories_generated < 5:
+while True: #number_of_trajectories_generated < 5:
     waypoints = []
     # Use last good waypoint as first waypoint in next trajectory
     waypoints.extend(last_successful_waypoint) 
