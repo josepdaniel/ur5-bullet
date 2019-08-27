@@ -193,26 +193,13 @@ def grouper(n, iterable):
 
        
 if __name__ == "__main__":
+    # Test program for 6 waypoints
     server = UR5RobotServer()
-    
-    
-    
     waypoint1 = [11.16, -118.32, -95.01, -328.21, 84.47, 87.86]
     waypoint2 = [11.16, -109.51, -90.23, -340.60, 84.47, 87.86]
     waypoint3 = [7.73, -96.89, -89.95, -355.87, 84.47, 87.85]
     waypoint4 = [-1.44, -94.18, -88.74, -355.94, 96.92, 87.85]
     waypoint5 = [-15.76, -99.88, -79.76, -356.32, 112.23, 87.86]
     waypoint6 = [-20.32, -111.60, -85.75, -342.22, 112.21, 87.85]
-    
     waypoints = [math.radians(x) for x in waypoint1+waypoint6+waypoint4+waypoint5+waypoint1+waypoint2+waypoint3+waypoint4+waypoint5]
-
     server.serve_list(waypoints)
-
-
-
-
-
-
-
-    
-
