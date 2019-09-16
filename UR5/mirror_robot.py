@@ -10,7 +10,6 @@ Display on the screen the actual pose of the real robot
 
 server = UR5RobotServer(do_handshake=False)
 sim = Simulation.Simulation()
-sim.begin_collision_checking()
 
 # time.sleep(0.5)
 
