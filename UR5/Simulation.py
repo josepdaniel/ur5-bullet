@@ -116,6 +116,11 @@ class Simulation(gym.Env):
         joints = [i[0] for i in j]
         return joints
     
+    def get_current_pose(self):
+        linkstate = pybullet.getLinkState(self.ur5, self.end_effector_index, computeForwardKinematics=True)
+        position, orientation = linkstate[0], linkstate[1]
+        return (position, orientation)
+
     def step_joints(self, joint_angles):
         poses = []
         indexes = []

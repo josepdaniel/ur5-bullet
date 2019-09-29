@@ -1,3 +1,19 @@
+"""
+Generates waypoints by picking a point on the surface of a unit sphere, then randomly choosing a diameter. 
+
+Boundaries are set to:
+
+0.35  m < x < 0.80 m
+-0.70 m < y < 0.70 m
+0.40  m < z < 0.40 m
+
+Waypoints will be linearly interpolated in pybullet, with kinematic solutions calculated by the bullet physics 
+server. If DO_ON_ROBOT is set to true, the program will establish a connection to the physical robots IP address
+and serve each set of verified waypoints. 
+
+"""
+
+
 from Simulation import Simulation
 from UR5 import UR5RobotServer
 import random
@@ -5,7 +21,7 @@ import math
 import sys
 import itertools
 
-DO_ON_ROBOT=True
+DO_ON_ROBOT=False
 
 sim = Simulation(camera_attached=True)
 sim.go_to_start_pose()
@@ -21,7 +37,6 @@ def grouper(n, iterable):
        yield chunk
 
 def generate_random_waypoint():
-    waypoints = []
     #Pick a random point on the surface of a unit hemi-sphere
     elevation = random.uniform(0.8, math.pi)
     azimuth = random.uniform(-2.6, 2.6)

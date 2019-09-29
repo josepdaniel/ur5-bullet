@@ -17,7 +17,8 @@ class UR5RobotServer():
     
         self.max_msg_length = 90
     
-        self.real_pose = None
+        self.actual_position = None
+        self.actual_euler = None
         self.real_joint_states = None
         
         self._lock = threading.Lock()
@@ -98,6 +99,9 @@ class UR5RobotServer():
 
     def get_joint_states(self):
         return self.real_joint_states
+    
+    def get_pose(self):
+        return (self.actual_position, self.actual_euler)
 
     def feedback(self):
         """
@@ -173,6 +177,8 @@ class UR5RobotServer():
                 Rz = struct.unpack('!d', codecs.decode(packet_17, "hex"))[0]
                 position = [x,y,z]
                 euler = [Rx, Ry, Rz]
+                self.actual_position = position 
+                self.actual_euler = euler
                 # print("Measured position and orientation: {}".format([round(x,2) for x in position+euler]))
                     
                 recieve_socket.close()
