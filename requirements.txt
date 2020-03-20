@@ -1,5 +1,4 @@
 pybullet
 click
 gym
-itertools
-socket
+attrdict
