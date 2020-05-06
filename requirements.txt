@@ -1,4 +1,3 @@
 pybullet
-click
-gym
+numpy
 attrdict
